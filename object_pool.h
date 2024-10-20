@@ -26,7 +26,8 @@ public:
 
 public:
   ObjectPoolPage();
-  Item* head() { return &items_[count - 1]; }
+  Item* head() { return &items_[0]; }
+  Item* tail() { return &items_[count - 1]; }
 
 private:
   static constexpr size_t count = Size / sizeof(Item);
@@ -37,9 +38,9 @@ private:
 template <typename T, int Size>
 ObjectPoolPage<T, Size>::ObjectPoolPage()
 {
-  items_[0].next = nullptr;
+  items_[count - 1].next = nullptr;
   for (size_t i = 1; i < count; ++i) {
-    items_[i].next = &items_[i - 1];
+    items_[i - 1].next = &items_[i];
   }
 }
 
@@ -60,12 +61,13 @@ private:
   using ItemPtr = ObjectPoolItem<T>*;
 
 private:
-  void newPage();
+  void addPage(uint64_t oldPageCount);
   ItemPtr pop();
-  void push(ItemPtr item);
+  void push(ItemPtr head, ItemPtr tail);
 
 private:
-  std::atomic<ItemPtr> free_;
+  std::atomic_uint64_t pageCount_;
+  std::atomic<ItemPtr> freeItems_;
   std::list<ObjectPoolPageUPtr<T, Size>> pages_;
   std::mutex allocationMutex_;
 };
@@ -73,7 +75,8 @@ private:
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, int Size>
 ObjectPool<T, Size>::ObjectPool() :
-  free_(nullptr)
+  pageCount_(0),
+  freeItems_(nullptr)
 {
 }
 
@@ -81,22 +84,12 @@ ObjectPool<T, Size>::ObjectPool() :
 template <typename T, int Size>
 ObjectPool<T, Size>::~ObjectPool()
 {
-  ItemPtr item = free_;
+  ItemPtr item = freeItems_;
   while (item) {
     T* objPtr = std::launder(reinterpret_cast<T*>(item->body));
     std::destroy_at(objPtr);
     item = item->next;
   }
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
-void ObjectPool<T, Size>::newPage()
-{
-  std::lock_guard<std::mutex> lock(allocationMutex_);
-  if (free_ != nullptr) return;
-  pages_.push_front(std::make_unique<ObjectPoolPage<T, Size>>());
-  free_ = pages_.front()->head();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
@@ -113,17 +106,30 @@ T* ObjectPool<T, Size>::allocate()
 template <typename T, int Size>
 ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
 {
-  auto oldHead = free_.load();
+  auto pageCount = pageCount_.load();
+  auto oldHead = freeItems_.load();
   ItemPtr nextHead = nullptr;
   do {
     if (oldHead == nullptr) {
-      newPage();
-      oldHead = free_.load();
+      addPage(pageCount);
+      pageCount = pageCount_.load();
+      oldHead = freeItems_.load();
       continue;
     }
     nextHead = oldHead->next;
-  } while (!free_.compare_exchange_weak(oldHead, nextHead));
+  } while (!freeItems_.compare_exchange_weak(oldHead, nextHead));
   return oldHead;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------
+template <typename T, int Size>
+void ObjectPool<T, Size>::addPage(uint64_t oldPageCount)
+{
+  std::lock_guard<std::mutex> lock(allocationMutex_);
+  if (oldPageCount != pageCount_) return;
+  ++pageCount_;
+  pages_.push_front(std::make_unique<ObjectPoolPage<T, Size>>());
+  push(pages_.front()->head(), pages_.front()->tail());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
@@ -134,22 +140,22 @@ void ObjectPool<T, Size>::free(T* ptr)
   auto bytePtr = reinterpret_cast<std::byte*>(ptr);
   bytePtr -= offsetof(ObjectPoolItem<T>, body);
   ItemPtr itemPtr = reinterpret_cast<ItemPtr>(bytePtr);
-  push(itemPtr);
+  push(itemPtr, itemPtr);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, int Size>
-void ObjectPool<T, Size>::push(ItemPtr item)
+void ObjectPool<T, Size>::push(ItemPtr head, ItemPtr tail)
 {
-  auto oldHead = free_.load();
+  auto oldHead = freeItems_.load();
   do
   {
-    item->next = oldHead;
+    tail->next = oldHead;
   }
-  while (!free_.compare_exchange_weak(oldHead, item));
+  while (!freeItems_.compare_exchange_weak(oldHead, head));
 }
 
-} // !namespace pool
+} // !namespace opool
 
 template <typename T, int PageSizeBytes = 64 * 1024>
 using ObjectPool = pool::ObjectPool<T, PageSizeBytes>;
