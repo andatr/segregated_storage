@@ -18,7 +18,7 @@ struct ObjectPoolItem
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size, typename Enable = std::enable_if_t<(Size / sizeof(ObjectPoolItem<T>) > 0)>>
 struct ObjectPoolPage
 {
 public:
@@ -35,8 +35,8 @@ private:
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
-ObjectPoolPage<T, Size>::ObjectPoolPage()
+template <typename T, size_t Size, typename Enable>
+ObjectPoolPage<T, Size, Enable>::ObjectPoolPage()
 {
   items_[count - 1].next = nullptr;
   for (size_t i = 1; i < count; ++i) {
@@ -44,11 +44,11 @@ ObjectPoolPage<T, Size>::ObjectPoolPage()
   }
 }
 
-template <typename T, int Size>
+template <typename T, size_t Size>
 using ObjectPoolPageUPtr = std::unique_ptr<ObjectPoolPage<T, Size>>;
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 class ObjectPool
 {
 public:
@@ -73,7 +73,7 @@ private:
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 ObjectPool<T, Size>::ObjectPool() :
   pageCount_(0),
   freeItems_(nullptr)
@@ -81,7 +81,7 @@ ObjectPool<T, Size>::ObjectPool() :
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 ObjectPool<T, Size>::~ObjectPool()
 {
   ItemPtr item = freeItems_;
@@ -93,7 +93,7 @@ ObjectPool<T, Size>::~ObjectPool()
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 T* ObjectPool<T, Size>::allocate()
 {
   auto itemPtr = pop();
@@ -103,7 +103,7 @@ T* ObjectPool<T, Size>::allocate()
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
 {
   auto pageCount = pageCount_.load();
@@ -122,7 +122,7 @@ ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 void ObjectPool<T, Size>::addPage(uint64_t oldPageCount)
 {
   std::lock_guard<std::mutex> lock(allocationMutex_);
@@ -133,7 +133,7 @@ void ObjectPool<T, Size>::addPage(uint64_t oldPageCount)
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 void ObjectPool<T, Size>::free(T* ptr)
 {
   std::destroy_at(ptr);
@@ -144,7 +144,7 @@ void ObjectPool<T, Size>::free(T* ptr)
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, int Size>
+template <typename T, size_t Size>
 void ObjectPool<T, Size>::push(ItemPtr head, ItemPtr tail)
 {
   auto oldHead = freeItems_.load();
@@ -157,7 +157,7 @@ void ObjectPool<T, Size>::push(ItemPtr head, ItemPtr tail)
 
 } // !namespace opool
 
-template <typename T, int PageSizeBytes = 64 * 1024>
+template <typename T, size_t PageSizeBytes = 64 * 1024>
 using ObjectPool = opool::ObjectPool<T, PageSizeBytes>;
 
 } // !namespace yaga
