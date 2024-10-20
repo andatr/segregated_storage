@@ -7,7 +7,7 @@
 #include <mutex>
 
 namespace yaga {
-namespace pool {
+namespace opool {
 
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T>
@@ -158,7 +158,7 @@ void ObjectPool<T, Size>::push(ItemPtr head, ItemPtr tail)
 } // !namespace opool
 
 template <typename T, int PageSizeBytes = 64 * 1024>
-using ObjectPool = pool::ObjectPool<T, PageSizeBytes>;
+using ObjectPool = opool::ObjectPool<T, PageSizeBytes>;
 
 } // !namespace yaga
 
