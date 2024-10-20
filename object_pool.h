@@ -54,7 +54,8 @@ class ObjectPool
 public:
   ObjectPool();
   ~ObjectPool();
-  T* allocate();
+  template <typename... Args>
+  T* allocate(Args&&... args);
   void free(T* ptr);
 
 private:
@@ -94,11 +95,12 @@ ObjectPool<T, Size>::~ObjectPool()
 
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, size_t Size>
-T* ObjectPool<T, Size>::allocate()
+template <typename... Args>
+T* ObjectPool<T, Size>::allocate(Args&&... args)
 {
   auto itemPtr = pop();
   T* objPtr = std::launder(reinterpret_cast<T*>(itemPtr->body));
-  ::new(objPtr) T();
+  ::new(objPtr) T(std::forward<Args>(args)...);
   return objPtr;
 }
 
