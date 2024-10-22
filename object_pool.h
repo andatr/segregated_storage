@@ -5,6 +5,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <type_traits>
 
 namespace yaga {
 namespace opool {
@@ -18,9 +19,12 @@ struct ObjectPoolItem
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t Size, typename Enable = std::enable_if_t<(Size / sizeof(ObjectPoolItem<T>) > 0)>>
+template <typename T, size_t Size>
 struct ObjectPoolPage
 {
+static_assert(std::is_nothrow_destructible_v<T>, "T must have a nothrow destructor");
+static_assert(Size / sizeof(ObjectPoolItem<T>) > 0, "Page size must be large enough to fit at least one item");
+
 public:
   using Item = ObjectPoolItem<T>;
 
@@ -35,8 +39,8 @@ private:
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t Size, typename Enable>
-ObjectPoolPage<T, Size, Enable>::ObjectPoolPage()
+template <typename T, size_t Size>
+ObjectPoolPage<T, Size>::ObjectPoolPage()
 {
   items_[count - 1].next = nullptr;
   for (size_t i = 1; i < count; ++i) {
@@ -100,7 +104,13 @@ T* ObjectPool<T, Size>::allocate(Args&&... args)
 {
   auto itemPtr = pop();
   T* objPtr = std::launder(reinterpret_cast<T*>(itemPtr->body));
-  ::new(objPtr) T(std::forward<Args>(args)...);
+  try {
+    ::new(objPtr) T(std::forward<Args>(args)...);
+  }
+  catch (...) {
+    push(itemPtr, itemPtr);
+    throw;
+  }
   return objPtr;
 }
 
