@@ -8,6 +8,8 @@ When an item is allocated, it is taken from the stack, and the constructor is ca
 Conversely, when an item is deallocated, the destructor is called, and the item is returned to the stack.
 If the stack is empty, a new page is allocated, and its items are added to the stack.
 Item acquisition is lock-free, while the page allocation process occurs under a lock, as detailed in the description below.
+Allocated pages are retained in memory until the pool is destroyed.
+This optimization pattern is commonly used in standard containers like std::vector, minimizing allocation overhead and improving performance.
 
 ```
      ┌───────────┐  ┌────┐ ┌───┐ ┌───┐  ┌──────────┐  ┌────┐ ┌───┐ ┌───┐      
