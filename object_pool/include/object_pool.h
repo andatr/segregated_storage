@@ -2,10 +2,11 @@
 #define YAGA_OBJECT_POOL
 
 #include <atomic>
-#include <list>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <type_traits>
+#include <vector>
 
 namespace yaga {
 namespace opool {
@@ -22,8 +23,8 @@ struct ObjectPoolItem
 template <typename T, size_t Size>
 struct ObjectPoolPage
 {
-static_assert(std::is_nothrow_destructible_v<T>, "T must have a nothrow destructor");
-static_assert(Size / sizeof(ObjectPoolItem<T>) > 0, "Page size must be large enough to fit at least one item");
+  static_assert(std::is_nothrow_destructible_v<T>, "T must have a nothrow destructor");
+  static_assert(Size / sizeof(ObjectPoolItem<T>) > 0, "Page size must be large enough to fit at least one item");
 
 public:
   using Item = ObjectPoolItem<T>;
@@ -56,10 +57,23 @@ template <typename T, size_t Size>
 class ObjectPool
 {
 public:
+  struct Deleter
+  {
+    ObjectPool* pool;
+    void operator()(T* ptr) { pool->free(ptr); }
+  };
+
+  using UPtr = std::unique_ptr<T, Deleter>;
+  using SPtr = std::shared_ptr<T>;
+
+public:
   ObjectPool();
-  ~ObjectPool();
   template <typename... Args>
   T* allocate(Args&&... args);
+  template <typename... Args>
+  SPtr allocateShared(Args&&... args);
+  template <typename... Args>
+  UPtr allocateUnique(Args&&... args);
   void free(T* ptr);
 
 private:
@@ -73,7 +87,7 @@ private:
 private:
   std::atomic_uint64_t pageCount_;
   std::atomic<ItemPtr> freeItems_;
-  std::list<ObjectPoolPageUPtr<T, Size>> pages_;
+  std::vector<ObjectPoolPageUPtr<T, Size>> pages_;
   std::mutex allocationMutex_;
 };
 
@@ -83,18 +97,6 @@ ObjectPool<T, Size>::ObjectPool() :
   pageCount_(0),
   freeItems_(nullptr)
 {
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t Size>
-ObjectPool<T, Size>::~ObjectPool()
-{
-  ItemPtr item = freeItems_;
-  while (item) {
-    T* objPtr = std::launder(reinterpret_cast<T*>(item->body));
-    std::destroy_at(objPtr);
-    item = item->next;
-  }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
@@ -116,6 +118,28 @@ T* ObjectPool<T, Size>::allocate(Args&&... args)
 
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, size_t Size>
+template <typename... Args>
+ObjectPool<T, Size>::SPtr ObjectPool<T, Size>::allocateShared(Args&&... args)
+{
+  return SPtr(
+    allocate(std::forward<Args>(args)...),
+    Deleter { this }
+  );
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------
+template <typename T, size_t Size>
+template <typename... Args>
+ObjectPool<T, Size>::UPtr ObjectPool<T, Size>::allocateUnique(Args&&... args)
+{
+  return UPtr(
+    allocate(std::forward<Args>(args)...),
+    Deleter { this }
+  );
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------
+template <typename T, size_t Size>
 ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
 {
   auto pageCount = pageCount_.load();
@@ -126,10 +150,11 @@ ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
       addPage(pageCount);
       pageCount = pageCount_.load();
       oldHead = freeItems_.load();
-      continue;
     }
-    nextHead = oldHead->next;
-  } while (!freeItems_.compare_exchange_weak(oldHead, nextHead));
+    if (oldHead != nullptr) {
+      nextHead = oldHead->next;
+    }
+  } while (oldHead == nullptr || !freeItems_.compare_exchange_weak(oldHead, nextHead));
   return oldHead;
 }
 
@@ -140,8 +165,8 @@ void ObjectPool<T, Size>::addPage(uint64_t oldPageCount)
   std::lock_guard<std::mutex> lock(allocationMutex_);
   if (oldPageCount != pageCount_) return;
   ++pageCount_;
-  pages_.push_front(std::make_unique<ObjectPoolPage<T, Size>>());
-  push(pages_.front()->head(), pages_.front()->tail());
+  pages_.push_back(std::make_unique<ObjectPoolPage<T, Size>>());
+  push(pages_.back()->head(), pages_.back()->tail());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------

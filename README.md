@@ -35,7 +35,7 @@ Page List  ─► │          PAGE1              │ ─► │         PAGE2  
 
 ## Requirements:
 
-- **C++17 or higher** is required.
+- **C++20 or higher** is required.
 
 ## Page allocation algorithm:
 
