@@ -5,6 +5,10 @@ enable_testing()
 project(object_pool VERSION 0.0.1 LANGUAGES CXX)
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+option(OBJECT_POOL_TEST "Enable tests (default ON)" ON)
+option(OBJECT_POOL_EXAMPLES "Enable examples (default ON)" ON)
 
 set (CMAKE_CXX_STANDARD 20)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -22,23 +26,41 @@ else(MSVC)
   add_compile_options(-Wall -Wextra -pedantic)
 endif(MSVC)
 
-find_package(Boost COMPONENTS
-  unit_test_framework
-REQUIRED)
-
 file(GLOB_RECURSE source_list
   "include/*.h"
 )
-
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_list})
 add_library(object_pool INTERFACE ${source_list})
 target_include_directories(object_pool
   INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(TARGETS object_pool INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(
+  TARGETS object_pool
+  EXPORT object_poolConfig
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(
+  EXPORT object_poolConfig
+  DESTINATION "share/cmake/object_pool"
+)
+write_basic_package_version_file(object_poolConfigVersion.cmake COMPATIBILITY SameMajorVersion ARCH_INDEPENDENT)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/object_poolConfigVersion.cmake"
+  DESTINATION "share/cmake/object_pool"
+)
 
-add_subdirectory(examples)
-add_subdirectory(test)
+if (OBJECT_POOL_EXAMPLES)
+  add_subdirectory(examples)
+endif()
+
+if (OBJECT_POOL_TEST)
+  add_subdirectory(test)
+endif()
+
+

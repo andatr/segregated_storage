@@ -1,3 +1,6 @@
+find_package(Boost COMPONENTS
+  unit_test_framework REQUIRED
+)
 file(GLOB_RECURSE source_list
   "*.h"
   "*.cpp"
