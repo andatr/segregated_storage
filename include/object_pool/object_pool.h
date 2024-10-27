@@ -2,7 +2,6 @@
 #define YAGA_OBJECT_POOL
 
 #include <atomic>
-#include <functional>
 #include <new>
 #include <memory>
 #include <mutex>
