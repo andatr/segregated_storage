@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <functional>
+#include <new>
 #include <memory>
 #include <mutex>
 #include <type_traits>
