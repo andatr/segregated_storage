@@ -24,6 +24,18 @@ find_package(Boost COMPONENTS
   unit_test_framework
 REQUIRED)
 
+file(GLOB_RECURSE source_list
+  "include/*.h"
+)
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_list})
+add_library(object_pool INTERFACE ${source_list})
+target_include_directories(object_pool
+  INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/include
+)
+
+install(TARGETS object_pool INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
 add_subdirectory(examples)
-add_subdirectory(object_pool)
 add_subdirectory(test)

@@ -1,4 +1,4 @@
-#include "object_pool.h"
+#include "object_pool/object_pool.h"
 #include <iostream>
 #include <boost/test/unit_test.hpp>
 
