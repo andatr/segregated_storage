@@ -4,6 +4,8 @@ enable_testing()
 
 project(object_pool VERSION 0.0.1 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 set (CMAKE_CXX_STANDARD 20)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "cmake")
@@ -35,6 +37,7 @@ target_include_directories(object_pool
     ${CMAKE_CURRENT_LIST_DIR}/include
 )
 
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(TARGETS object_pool INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 add_subdirectory(examples)
