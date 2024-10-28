@@ -1,5 +1,5 @@
 #include "object_pool/object_pool.h"
-#include <iostream>
+#include <thread>
 #include <boost/test/unit_test.hpp>
 
 static std::atomic<size_t> gAllocationCount = 0;
