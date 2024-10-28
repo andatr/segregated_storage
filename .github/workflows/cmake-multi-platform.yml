@@ -55,6 +55,7 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Install vcpkg
+      shell: bash
       run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
