@@ -58,7 +58,11 @@ jobs:
       run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
-          ./bootstrap-vcpkg.sh
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            ./bootstrap-vcpkg.bat
+          else
+            ./bootstrap-vcpkg.sh
+          fi
           ./vcpkg integrate install
           cd ..
 
