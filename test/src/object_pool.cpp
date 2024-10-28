@@ -203,27 +203,27 @@ BOOST_AUTO_TEST_CASE(PageAllocation)
 BOOST_AUTO_TEST_CASE(ParallelAllocation)
 {
   constexpr size_t itemSize = sizeof(yaga::opool::ObjectPoolItem<BasicClass>);
-  constexpr size_t objectCount = 1000;
+  constexpr int objectCount = 1000;
   constexpr size_t multiplier = 3;
   constexpr size_t pageSize = itemSize * multiplier;
 
   yaga::ObjectPool<BasicClass, pageSize> pool;
 
   std::vector<BasicClass*> objects1(objectCount);
-  for (size_t i = 0; i < objectCount; ++i) {
+  for (int i = 0; i < objectCount; ++i) {
     objects1[i] = pool.allocate();
     objects1[i]->num = i;
   }
   
   std::thread thread1([&pool, &objects1]() {
-    for (size_t i = 0; i < objectCount; ++i) {
+    for (int i = 0; i < objectCount; ++i) {
       pool.free(objects1[i]);
     }
   });
 
   std::vector<BasicClass*> objects2(objectCount);
   std::thread thread2([&pool, &objects2]() {
-    for (size_t i = 0; i < objectCount; ++i) {
+    for (int i = 0; i < objectCount; ++i) {
       objects2[i] = pool.allocate();
       objects2[i]->num = 1000 + i;
     }
@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE(ParallelAllocation)
 
   std::vector<BasicClass*> objects3(objectCount);
   std::thread thread3([&pool, &objects3]() {
-    for (size_t i = 0; i < objectCount; ++i) {
+    for (int i = 0; i < objectCount; ++i) {
       objects3[i] = pool.allocate();
       objects3[i]->num = 2000 + i;
     }
@@ -241,12 +241,12 @@ BOOST_AUTO_TEST_CASE(ParallelAllocation)
   thread2.join();
   thread3.join();
 
-  for (size_t i = 0; i < objectCount; ++i) {
+  for (int i = 0; i < objectCount; ++i) {
     BOOST_TEST(objects2[i]->num == 1000 + i);
     BOOST_TEST(objects3[i]->num == 2000 + i);
   }
 
-  for (size_t i = 0; i < objectCount; ++i) {
+  for (int i = 0; i < objectCount; ++i) {
     pool.free(objects2[i]);
     pool.free(objects3[i]);
   }
