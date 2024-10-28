@@ -62,9 +62,9 @@ jobs:
           ./vcpkg integrate install
           cd ..
 
-    - name: Install Boost Unit Test Framework
+    - name: Install Boost Test
       run: |
-          ${{ github.workspace }}/vcpkg/vcpkg install boost-unit-test-framework
+          ${{ github.workspace }}/vcpkg/vcpkg install boost-test
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
