@@ -119,7 +119,7 @@ T* ObjectPool<T, Size>::allocate(Args&&... args)
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, size_t Size>
 template <typename... Args>
-ObjectPool<T, Size>::SPtr ObjectPool<T, Size>::allocateShared(Args&&... args)
+typename ObjectPool<T, Size>::SPtr ObjectPool<T, Size>::allocateShared(Args&&... args)
 {
   return SPtr(
     allocate(std::forward<Args>(args)...),
@@ -130,7 +130,7 @@ ObjectPool<T, Size>::SPtr ObjectPool<T, Size>::allocateShared(Args&&... args)
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, size_t Size>
 template <typename... Args>
-ObjectPool<T, Size>::UPtr ObjectPool<T, Size>::allocateUnique(Args&&... args)
+typename ObjectPool<T, Size>::UPtr ObjectPool<T, Size>::allocateUnique(Args&&... args)
 {
   return UPtr(
     allocate(std::forward<Args>(args)...),
@@ -140,7 +140,7 @@ ObjectPool<T, Size>::UPtr ObjectPool<T, Size>::allocateUnique(Args&&... args)
 
 // -----------------------------------------------------------------------------------------------------------------------------
 template <typename T, size_t Size>
-ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
+typename ObjectPool<T, Size>::ItemPtr ObjectPool<T, Size>::pop()
 {
   auto pageCount = pageCount_.load();
   auto oldHead = freeItems_.load();
