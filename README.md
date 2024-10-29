@@ -1,5 +1,7 @@
 # Object Pool (C++)
 
+[![test](https://github.com/andatr/object_pool/actions/workflows/test.yml/badge.svg)](https://github.com/andatr/object_pool/actions/workflows/test.yml)
+
 Object Pool is a thread-safe implementation of Simple Segregated Storage, designed for fast allocation of objects of the same type.
 
 The Object Pool consists of a list of fixed-size pages, defined by the `PageSizeBytes` template argument.

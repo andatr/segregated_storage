@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 cmake_policy(VERSION 3.25)
+cmake_policy(SET CMP0167 NEW)
 enable_testing()
 
 project(object_pool VERSION 0.0.1 LANGUAGES CXX)
