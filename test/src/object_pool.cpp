@@ -20,7 +20,7 @@ void operator delete(void* ptr) noexcept
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-void operator delete(void* ptr, std::size_t sz) noexcept
+void operator delete(void* ptr, std::size_t) noexcept
 {
   std::free(ptr);
 }
