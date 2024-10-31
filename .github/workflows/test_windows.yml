@@ -12,20 +12,10 @@ jobs:
 
     strategy:
       fail-fast: true
-
-      # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
-      # 2. <Linux, Release, latest GCC compiler toolchain on the default runner image, default generator>
-      # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
       matrix:
         build_type: [Release]
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: windows-latest
-            cpp_compiler: cl
-          - os: ubuntu-latest
-            cpp_compiler: g++
-          - os: ubuntu-latest
-            cpp_compiler: clang++
+        os: [windows-latest]
+        cpp_compiler: [cl]
 
     steps:
     - uses: actions/checkout@v4
@@ -41,11 +31,7 @@ jobs:
       run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            ./bootstrap-vcpkg.bat
-          else
-            ./bootstrap-vcpkg.sh
-          fi
+          ./bootstrap-vcpkg.bat
           ./vcpkg integrate install
           cd ..
 
@@ -67,4 +53,4 @@ jobs:
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ matrix.build_type }}
+      run: ctest --build-config ${{ matrix.build_type }} --rerun-failed --output-on-failure

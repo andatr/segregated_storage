@@ -1,6 +1,8 @@
 # Object Pool (C++)
 
-[![test](https://github.com/andatr/object_pool/actions/workflows/test.yml/badge.svg)](https://github.com/andatr/object_pool/actions/workflows/test.yml)
+[![test](https://github.com/andatr/object_pool/actions/workflows/test_linux.yml/badge.svg)](https://github.com/andatr/object_pool/actions/workflows/test_linux.yml)
+[![test](https://github.com/andatr/object_pool/actions/workflows/test_windows.yml/badge.svg)](https://github.com/andatr/object_pool/actions/workflows/test_windows.yml)
+[![test](https://github.com/andatr/object_pool/actions/workflows/test_macos.yml/badge.svg)](https://github.com/andatr/object_pool/actions/workflows/test_macos.yml)
 
 Object Pool is a thread-safe implementation of Simple Segregated Storage, designed for fast allocation of objects of the same type.
 
