@@ -1,4 +1,4 @@
-name: test
+name: linux
 
 on:
   push:
@@ -14,8 +14,8 @@ jobs:
       fail-fast: true
       matrix:
         build_type: [Release]
-        os: [windows-latest]
-        cpp_compiler: [cl]
+        os: [ubuntu-latest]
+        cpp_compiler: [g++, clang++]
 
     steps:
     - uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
       run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
-          ./bootstrap-vcpkg.bat
+          ./bootstrap-vcpkg.sh
           ./vcpkg integrate install
           cd ..
 
