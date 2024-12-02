@@ -19,8 +19,8 @@ public:
   struct Deleter
   {
     SegregatedStorage* allocator;
-    template <typename T>
-    void operator()(T* ptr) { allocator->free(ptr); }
+    template <typename P>
+    void operator()(P* ptr) { allocator->free(ptr); }
   };
   using UPtr = std::unique_ptr<T, Deleter>;
   using SPtr = std::shared_ptr<T>;

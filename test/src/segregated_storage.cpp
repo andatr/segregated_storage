@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE(ExceptionInCtor)
 
   try
   {
-    auto object = pool.allocate(true);
+    pool.allocate(true);
     BOOST_TEST(false);
   }
   catch (CustomError& exception)
