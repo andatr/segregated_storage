@@ -120,7 +120,7 @@ IRawSegregatedStorage* SegregatedMultiStorage<PageSize>::createStorage()
 // -----------------------------------------------------------------------------------------------------------------------------
 template <size_t PageSize>
 template <typename T, typename... Args>
-typename SegregatedMultiStorage<PageSize>::SPtr<T> SegregatedMultiStorage<PageSize>::allocateShared(Args&&... args)
+typename SegregatedMultiStorage<PageSize>::template SPtr<T> SegregatedMultiStorage<PageSize>::allocateShared(Args&&... args)
 {
   return SPtr<T>(
     allocate<T, Args...>(std::forward<Args>(args)...),
@@ -131,7 +131,7 @@ typename SegregatedMultiStorage<PageSize>::SPtr<T> SegregatedMultiStorage<PageSi
 // -----------------------------------------------------------------------------------------------------------------------------
 template <size_t PageSize>
 template <typename T, typename... Args>
-typename SegregatedMultiStorage<PageSize>::UPtr<T> SegregatedMultiStorage<PageSize>::allocateUnique(Args&&... args)
+typename SegregatedMultiStorage<PageSize>::template UPtr<T> SegregatedMultiStorage<PageSize>::allocateUnique(Args&&... args)
 {
   return UPtr<T>(
     allocate<T, Args...>(std::forward<Args>(args)...),

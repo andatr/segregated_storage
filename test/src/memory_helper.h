@@ -16,25 +16,8 @@ private:
   static std::atomic<size_t> allocationCount_;
 };
 
-// -----------------------------------------------------------------------------------------------------------------------------
-inline void* operator new(std::size_t size)
-{
-  ++MemoryHelper::allocationCount_ ;
-  void* ptr = std::malloc(size);
-  if (!ptr) throw std::bad_alloc();
-  return ptr;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------
-inline void operator delete(void* ptr) noexcept
-{
-  std::free(ptr);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------
-inline void operator delete(void* ptr, std::size_t) noexcept
-{
-  std::free(ptr);
-}
+void* operator new(std::size_t size);
+void operator delete(void* ptr) noexcept;
+void operator delete(void* ptr, std::size_t) noexcept;
 
 #endif // !YAGA_SEGREGATED_STORAGE_TEST_MEMORY_HELPER
