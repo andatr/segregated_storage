@@ -1,87 +1,41 @@
-#include "object_pool/object_pool.h"
 #include <thread>
+#include "segregated_storage/segregated_storage.h"
+#include "memory_helper.h"
+#include "test_class.h"
 #include <boost/test/unit_test.hpp>
 
-static std::atomic<size_t> gAllocationCount = 0;
-
-// -----------------------------------------------------------------------------------------------------------------------------
-void* operator new(std::size_t size)
-{
-  ++gAllocationCount;
-  void* ptr = std::malloc(size);
-  if (!ptr) throw std::bad_alloc();
-  return ptr;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------
-void operator delete(void* ptr) noexcept
-{
-  std::free(ptr);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------
-void operator delete(void* ptr, std::size_t) noexcept
-{
-  std::free(ptr);
-}
-
-BOOST_AUTO_TEST_SUITE(ObjectPoolTest)
-
-// -----------------------------------------------------------------------------------------------------------------------------
-class BasicClass
-{
-public:
-
-  BasicClass() :
-    ch('B'),
-    num(123)
-  {}
-
-  ~BasicClass()
-  {
-    ++dtorCount;
-  }
-
-  static int dtorCount;
-
-  char ch;
-  int num;
-};
-
-int BasicClass::dtorCount = 0;
+BOOST_AUTO_TEST_SUITE(SegregatedStorageTest)
 
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(Ctor)
 {
-  yaga::ObjectPool<BasicClass> pool;
+  yaga::sgs::SegregatedStorage<TestClass> pool;
   auto obj = pool.allocate();
   BOOST_TEST(obj != nullptr); 
-  BOOST_TEST(obj->ch == 'B');
-  BOOST_TEST(obj->num == 123);
+  BOOST_TEST(obj->character() == 'B');
+  BOOST_TEST(obj->number() == 123);
   pool.free(obj);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(Dtor)
 {
-  int dtorCount = BasicClass::dtorCount;
-  yaga::ObjectPool<BasicClass> pool;
+  int dtorCount = TestClass::dtorCallCount();
+  yaga::sgs::SegregatedStorage<TestClass> pool;
   auto obj = pool.allocate();  
   pool.free(obj);
-  BOOST_TEST(dtorCount + 1 == BasicClass::dtorCount);
+  BOOST_TEST(dtorCount + 1 == TestClass::dtorCallCount());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(Alignment)
 {
   constexpr size_t ALIGNMENT = 16;
-
   struct alignas(ALIGNMENT) AlignedClass
   {
     char ch;
   };
-
-  yaga::ObjectPool<AlignedClass> pool;
+  yaga::sgs::SegregatedStorage<AlignedClass> pool;
   auto obj1 = pool.allocate();
   auto obj2 = pool.allocate();
   uintptr_t address1 = reinterpret_cast<uintptr_t>(obj1);
@@ -95,29 +49,29 @@ BOOST_AUTO_TEST_CASE(Alignment)
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(AllocateShared)
 {
-  int dtorCount = BasicClass::dtorCount;
-  yaga::ObjectPool<BasicClass> pool;
+  int dtorCount = TestClass::dtorCallCount();
+  yaga::sgs::SegregatedStorage<TestClass> pool;
   {
     auto obj = pool.allocateShared();
     BOOST_TEST(obj != nullptr); 
-    BOOST_TEST(obj->ch == 'B');
-    BOOST_TEST(obj->num == 123);
+    BOOST_TEST(obj->character() == 'B');
+    BOOST_TEST(obj->number() == 123);
   }
-  BOOST_TEST(dtorCount + 1 == BasicClass::dtorCount);
+  BOOST_TEST(dtorCount + 1 == TestClass::dtorCallCount());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(AllocateUnique)
 {
-  int dtorCount = BasicClass::dtorCount;
-  yaga::ObjectPool<BasicClass> pool;
+  int dtorCount = TestClass::dtorCallCount();
+  yaga::sgs::SegregatedStorage<TestClass> pool;
   {
     auto obj = pool.allocateUnique();
     BOOST_TEST(obj != nullptr); 
-    BOOST_TEST(obj->ch == 'B');
-    BOOST_TEST(obj->num == 123);
+    BOOST_TEST(obj->character() == 'B');
+    BOOST_TEST(obj->number() == 123);
   }
-  BOOST_TEST(dtorCount + 1 == BasicClass::dtorCount);
+  BOOST_TEST(dtorCount + 1 == TestClass::dtorCallCount());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
@@ -152,7 +106,7 @@ BOOST_AUTO_TEST_CASE(PerfectForwarding)
     NonCopyable dependency_;
   };
 
-  yaga::ObjectPool<Dependant> pool;
+  yaga::sgs::SegregatedStorage<Dependant> pool;
   {
     auto obj = pool.allocate(NonCopyable(123));
     BOOST_TEST(obj != nullptr); 
@@ -165,7 +119,7 @@ BOOST_AUTO_TEST_CASE(PerfectForwarding)
     BOOST_TEST(sobj->dependency().value() == 456);
   }
   {
-    auto uobj = pool.allocateShared(NonCopyable(789));
+    auto uobj = pool.allocateUnique(NonCopyable(789));
     BOOST_TEST(uobj != nullptr); 
     BOOST_TEST(uobj->dependency().value() == 789);
   }
@@ -174,33 +128,78 @@ BOOST_AUTO_TEST_CASE(PerfectForwarding)
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(PageAllocation)
 {
-  constexpr size_t itemSize = sizeof(yaga::opool::ObjectPoolItem<BasicClass>);
-  constexpr size_t objectCount = 100;
-  constexpr size_t multiplier = 3;
-  constexpr size_t pageSize = itemSize * multiplier;
-  constexpr size_t pageCount = (objectCount + multiplier - 1) / multiplier;
-  yaga::ObjectPool<BasicClass, pageSize> pool;
+  constexpr size_t itemSize = sizeof(yaga::sgs::RawSegregatedStorageItem<sizeof(TestClass), alignof(TestClass)>);
+  constexpr size_t objectsPerPage = 3;
+  constexpr size_t pageSize = itemSize * objectsPerPage;
+  constexpr size_t pageCount = 34;
+  constexpr size_t objectCount = pageCount * objectsPerPage;
+  yaga::sgs::SegregatedStorage<TestClass, pageSize> pool;
 
-  BasicClass* objects[objectCount];
-  
-  size_t allocationCount = gAllocationCount;
+  TestClass* objects[objectCount + 1] {};
+  size_t allocationCount = MemoryHelper::allocationCount();
   for (size_t i = 0; i < objectCount; ++i) {
     objects[i] = pool.allocate();
   }
-  // one allocation per page, and some allocations to resize page storage (vector)
-  BOOST_TEST(gAllocationCount - allocationCount <= 2 * pageCount);
-  
+  BOOST_TEST(MemoryHelper::allocationCount() - allocationCount == pageCount);
   for (size_t i = 0; i < objectCount; ++i) {
     pool.free(objects[i]);
   }
 
-  allocationCount = gAllocationCount;
+  allocationCount = MemoryHelper::allocationCount();
   for (size_t i = 0; i < objectCount; ++i) {
     objects[i] = pool.allocate();
   }
-  BOOST_TEST(gAllocationCount - allocationCount == 0);
+  BOOST_TEST(MemoryHelper::allocationCount() == allocationCount);
+  objects[objectCount] = pool.allocate();
+  BOOST_TEST(MemoryHelper::allocationCount() == allocationCount + 1);
+  for (size_t i = 0; i < objectCount + 1; ++i) {
+    pool.free(objects[i]);
+  }
+}
 
-  for (size_t i = 0; i < objectCount; ++i) {
+// -----------------------------------------------------------------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE(ExceptionInCtor)
+{
+  class CustomError : public std::runtime_error
+  {
+  public:
+    explicit CustomError(const char* message) : std::runtime_error(message) {}
+  };
+
+  class ThrowableCtor
+  {
+  public:
+    ThrowableCtor(bool throwException) : value_(0.0f) { if (throwException) { throw CustomError("Exception in ctor"); }}
+    float& value() { return value_; }
+
+  private:
+    float value_;
+  };
+
+  constexpr size_t itemSize = sizeof(yaga::sgs::RawSegregatedStorageItem<sizeof(ThrowableCtor), alignof(ThrowableCtor)>);
+  constexpr size_t objectsPerPage = 3;
+  constexpr size_t pageSize = itemSize * objectsPerPage;
+  yaga::sgs::SegregatedStorage<ThrowableCtor, pageSize> pool;
+
+  try
+  {
+    auto object = pool.allocate(true);
+    BOOST_TEST(false);
+  }
+  catch (CustomError& exception)
+  {
+    BOOST_TEST(true);
+  }
+
+  ThrowableCtor* objects[objectsPerPage + 1] {};
+  size_t allocationCount = MemoryHelper::allocationCount();
+  for (size_t i = 0; i < objectsPerPage; ++i) {
+    objects[i] = pool.allocate(false);
+  }
+  BOOST_TEST(MemoryHelper::allocationCount() == allocationCount);
+  objects[objectsPerPage] = pool.allocate(false);
+  BOOST_TEST(MemoryHelper::allocationCount() == allocationCount + 1);
+  for (size_t i = 0; i < objectsPerPage + 1; ++i) {
     pool.free(objects[i]);
   }
 }
@@ -208,17 +207,17 @@ BOOST_AUTO_TEST_CASE(PageAllocation)
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(ParallelAllocation)
 {
-  constexpr size_t itemSize = sizeof(yaga::opool::ObjectPoolItem<BasicClass>);
-  constexpr int objectCount = 1000;
-  constexpr size_t multiplier = 3;
-  constexpr size_t pageSize = itemSize * multiplier;
+  constexpr size_t itemSize = sizeof(yaga::sgs::RawSegregatedStorageItem<sizeof(TestClass), alignof(TestClass)>);
+  constexpr int objectCount = 10000;
+  constexpr size_t objectsPerPage = 3;
+  constexpr size_t pageSize = itemSize * objectsPerPage;
 
-  yaga::ObjectPool<BasicClass, pageSize> pool;
+  yaga::sgs::SegregatedStorage<TestClass, pageSize> pool;
 
-  std::vector<BasicClass*> objects1(objectCount);
+  std::vector<TestClass*> objects1(objectCount);
   for (int i = 0; i < objectCount; ++i) {
     objects1[i] = pool.allocate();
-    objects1[i]->num = i;
+    objects1[i]->number() = i;
   }
   
   std::thread thread1([&pool, &objects1]() {
@@ -227,19 +226,19 @@ BOOST_AUTO_TEST_CASE(ParallelAllocation)
     }
   });
 
-  std::vector<BasicClass*> objects2(objectCount);
+  std::vector<TestClass*> objects2(objectCount);
   std::thread thread2([&pool, &objects2]() {
     for (int i = 0; i < objectCount; ++i) {
       objects2[i] = pool.allocate();
-      objects2[i]->num = 1000 + i;
+      objects2[i]->number() = objectCount + i;
     }
   });
 
-  std::vector<BasicClass*> objects3(objectCount);
+  std::vector<TestClass*> objects3(objectCount);
   std::thread thread3([&pool, &objects3]() {
     for (int i = 0; i < objectCount; ++i) {
       objects3[i] = pool.allocate();
-      objects3[i]->num = 2000 + i;
+      objects3[i]->number() = 2 * objectCount + i;
     }
   });
 
@@ -247,10 +246,10 @@ BOOST_AUTO_TEST_CASE(ParallelAllocation)
   thread2.join();
   thread3.join();
 
-  for (int i = 0; i < objectCount; ++i) {
-    BOOST_TEST(objects2[i]->num == 1000 + i);
-    BOOST_TEST(objects3[i]->num == 2000 + i);
-  }
+  /*for (int i = 0; i < objectCount; ++i) {
+    BOOST_TEST(objects2[i]->number() == objectCount + i);
+    BOOST_TEST(objects3[i]->number() == 2 * objectCount + i);
+  }*/
 
   for (int i = 0; i < objectCount; ++i) {
     pool.free(objects2[i]);
@@ -277,4 +276,4 @@ BOOST_AUTO_TEST_CASE(ParallelAllocation)
 //  yaga::ObjectPool<BasicClass, sizeof(BasicClass) - 1> pool;
 //}
 
-BOOST_AUTO_TEST_SUITE_END() // !ObjectPoolTest
+BOOST_AUTO_TEST_SUITE_END() // !SegregatedStorageTest

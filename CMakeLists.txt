@@ -3,15 +3,15 @@ cmake_policy(VERSION 3.25)
 cmake_policy(SET CMP0167 NEW)
 enable_testing()
 
-project(object_pool VERSION 0.0.1 LANGUAGES CXX)
+project(segregated_storage VERSION 0.0.1 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-option(OBJECT_POOL_TEST "Enable tests (default ON)" ON)
-option(OBJECT_POOL_EXAMPLES "Enable examples (default ON)" ON)
+option(SEGREGATED_STORAGE_TEST "Enable tests (default ON)" ON)
+option(SEGREGATED_STORAGE_EXAMPLES "Enable examples (default ON)" ON)
 
-set (CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 20)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "cmake")
 
@@ -31,8 +31,8 @@ file(GLOB_RECURSE source_list
   "include/*.h"
 )
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_list})
-add_library(object_pool INTERFACE ${source_list})
-target_include_directories(object_pool
+add_library(segregated_storage INTERFACE ${source_list})
+target_include_directories(segregated_storage
   INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
@@ -42,25 +42,25 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(
-  TARGETS object_pool
-  EXPORT object_poolConfig
+  TARGETS segregated_storage
+  EXPORT segregated_storageConfig
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(
-  EXPORT object_poolConfig
-  DESTINATION "share/cmake/object_pool"
+  EXPORT segregated_storageConfig
+  DESTINATION "share/cmake/segregated_storage"
 )
-write_basic_package_version_file(object_poolConfigVersion.cmake COMPATIBILITY SameMajorVersion ARCH_INDEPENDENT)
+write_basic_package_version_file(segregated_storageConfigVersion.cmake COMPATIBILITY SameMajorVersion ARCH_INDEPENDENT)
 install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/object_poolConfigVersion.cmake"
-  DESTINATION "share/cmake/object_pool"
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/segregated_storageConfigVersion.cmake"
+  DESTINATION "share/cmake/segregated_storage"
 )
 
-if (OBJECT_POOL_EXAMPLES)
+if (SEGREGATED_STORAGE_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-if (OBJECT_POOL_TEST)
+if (SEGREGATED_STORAGE_TEST)
   add_subdirectory(test)
 endif()
 
