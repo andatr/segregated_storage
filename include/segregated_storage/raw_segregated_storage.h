@@ -26,26 +26,26 @@ struct RawSegregatedStoragePage
 {
 public:
   using Item = RawSegregatedStorageItem<Size, Alignment>;
-  using PageUPtr = std::unique_ptr<RawSegregatedStoragePage<Size, Alignment, PageSize>>;
+  using PagePtr = RawSegregatedStoragePage<Size, Alignment, PageSize>*;
   static constexpr size_t itemSize = sizeof(Item);
   static constexpr size_t itemCount = PageSize / itemSize;
   static_assert(itemCount > 0, "Page size must be large enough to fit at least one item");
 
 public:
-  explicit RawSegregatedStoragePage(PageUPtr&& value);
+  explicit RawSegregatedStoragePage(PagePtr nextPage);
   Item* head() { return &items_[0]; }
   Item* tail() { return &items_[itemCount - 1]; }
-  PageUPtr& nextPage() { return nextPage_; } 
+  PagePtr nextPage() { return nextPage_; } 
 
 private:
-  PageUPtr nextPage_;
+  PagePtr nextPage_;
   Item items_[itemCount];
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
 template <size_t Size, size_t Alignment, size_t PageSize>
-RawSegregatedStoragePage<Size, Alignment, PageSize>::RawSegregatedStoragePage(PageUPtr&& value) :
-  nextPage_(std::move(value))
+RawSegregatedStoragePage<Size, Alignment, PageSize>::RawSegregatedStoragePage(PagePtr nextPage) :
+  nextPage_(nextPage)
 {
   items_[itemCount - 1].next = nullptr;
   for (size_t i = 1; i < itemCount; ++i) {
@@ -75,7 +75,6 @@ public:
 private:
   using Item = RawSegregatedStorageItem<Size, Alignment>;
   using Page = RawSegregatedStoragePage<Size, Alignment, PageSize>;
-  using PageUPtr = std::unique_ptr<Page>;
 
 private:
   void addPage(uint64_t oldPageCount);
@@ -84,7 +83,7 @@ private:
 private:
   std::atomic_uint64_t pageCount_;
   std::atomic<Item*> freeItems_;
-  PageUPtr pagesHead_;
+  Page* pagesHead_;
   std::mutex allocationMutex_;
 };
 
@@ -92,7 +91,8 @@ private:
 template <size_t Size, size_t Alignment, size_t PageSize>
 RawSegregatedStorage<Size, Alignment, PageSize>::RawSegregatedStorage() :
   pageCount_(0),
-  freeItems_(nullptr)
+  freeItems_(nullptr),
+  pagesHead_(nullptr)
 {
 }
 
@@ -100,9 +100,10 @@ RawSegregatedStorage<Size, Alignment, PageSize>::RawSegregatedStorage() :
 template <size_t Size, size_t Alignment, size_t PageSize>
 RawSegregatedStorage<Size, Alignment, PageSize>::~RawSegregatedStorage()
 {
-  // deleting pages manually to avoid stack overflow
-  while (pagesHead_) {    
-    pagesHead_ = std::move(pagesHead_->nextPage());
+  while (pagesHead_) {
+    auto next = pagesHead_->nextPage();
+    delete pagesHead_;
+    pagesHead_ = next;
   }
 }
 
@@ -132,8 +133,7 @@ void RawSegregatedStorage<Size, Alignment, PageSize>::addPage(uint64_t oldPageCo
 {
   std::lock_guard<std::mutex> lock(allocationMutex_);
   if (oldPageCount != pageCount_) return;
-  auto newPage = std::make_unique<Page>(std::move(pagesHead_));
-  pagesHead_ = std::move(newPage);
+  pagesHead_ = new Page(pagesHead_);
   push(pagesHead_->head(), pagesHead_->tail());
   ++pageCount_;
 }
