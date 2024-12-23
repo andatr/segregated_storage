@@ -30,11 +30,12 @@ BOOST_AUTO_TEST_CASE(Dtor)
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(Alignment)
 {
-  constexpr size_t ALIGNMENT = 16;
+  constexpr size_t ALIGNMENT = 256;
   struct alignas(ALIGNMENT) AlignedClass
   {
     char ch;
   };
+
   yaga::sgs::SegregatedStorage<AlignedClass> pool;
   auto obj1 = pool.allocate();
   auto obj2 = pool.allocate();
@@ -128,12 +129,13 @@ BOOST_AUTO_TEST_CASE(PerfectForwarding)
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(PageAllocation)
 {
-  constexpr size_t itemSize = sizeof(yaga::sgs::RawSegregatedStorageItem<sizeof(TestClass), alignof(TestClass)>);
+  using RawStorate = yaga::sgs::RawSegregatedStoragePage<sizeof(TestClass), alignof(TestClass)>;
+  constexpr size_t itemSize = sizeof(typename RawStorate::Item);
   constexpr size_t objectsPerPage = 3;
-  constexpr size_t pageSize = itemSize * objectsPerPage;
+  constexpr size_t pageSize = itemSize * (objectsPerPage - 1) + sizeof(typename RawStorate::Page);
   constexpr size_t pageCount = 34;
   constexpr size_t objectCount = pageCount * objectsPerPage;
-  yaga::sgs::SegregatedStorage<TestClass, pageSize> pool;
+  yaga::sgs::SegregatedStorage<TestClass> pool(pageSize);
 
   TestClass* objects[objectCount + 1] {};
   size_t allocationCount = MemoryHelper::allocationCount();
@@ -176,10 +178,11 @@ BOOST_AUTO_TEST_CASE(ExceptionInCtor)
     float value_;
   };
 
-  constexpr size_t itemSize = sizeof(yaga::sgs::RawSegregatedStorageItem<sizeof(ThrowableCtor), alignof(ThrowableCtor)>);
+  using RawStorate = yaga::sgs::RawSegregatedStoragePage<sizeof(ThrowableCtor), alignof(ThrowableCtor)>;
+  constexpr size_t itemSize = sizeof(typename RawStorate::Item);
   constexpr size_t objectsPerPage = 3;
-  constexpr size_t pageSize = itemSize * objectsPerPage;
-  yaga::sgs::SegregatedStorage<ThrowableCtor, pageSize> pool;
+  constexpr size_t pageSize = itemSize * (objectsPerPage - 1) + sizeof(typename RawStorate::Page);
+  yaga::sgs::SegregatedStorage<ThrowableCtor> pool(pageSize);
 
   try
   {
@@ -207,12 +210,13 @@ BOOST_AUTO_TEST_CASE(ExceptionInCtor)
 // -----------------------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(ParallelAllocation)
 {
-  constexpr size_t itemSize = sizeof(yaga::sgs::RawSegregatedStorageItem<sizeof(TestClass), alignof(TestClass)>);
+  using RawStorate = yaga::sgs::RawSegregatedStoragePage<sizeof(TestClass), alignof(TestClass)>;
+  constexpr size_t itemSize = sizeof(typename RawStorate::Item);
   constexpr int objectCount = 10000;
   constexpr size_t objectsPerPage = 3;
-  constexpr size_t pageSize = itemSize * objectsPerPage;
+  constexpr size_t pageSize = itemSize * (objectsPerPage - 1) + sizeof(typename RawStorate::Page);
 
-  yaga::sgs::SegregatedStorage<TestClass, pageSize> pool;
+  yaga::sgs::SegregatedStorage<TestClass> pool(pageSize);
 
   std::vector<TestClass*> objects1(objectCount);
   for (int i = 0; i < objectCount; ++i) {

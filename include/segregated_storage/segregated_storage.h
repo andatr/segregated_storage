@@ -11,7 +11,7 @@ namespace yaga {
 namespace sgs {
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t PageSize = DEFAULT_PAGE_SIZE>
+template <typename T>
 class SegregatedStorage
 {
 public:
@@ -26,7 +26,7 @@ public:
   using SPtr = std::shared_ptr<T>;
 
 public:
-  SegregatedStorage();
+  explicit SegregatedStorage(size_t pageSize = DEFAULT_PAGE_SIZE);
   template <typename... Args>
   T* allocate(Args&&... args);
   template <typename... Args>
@@ -36,21 +36,22 @@ public:
   void free(T* ptr);
 
 private:
-  std::unique_ptr<IRawSegregatedStorage> rawStorage_;
+  using RawStorage = RawSegregatedStorage<sizeof(T), alignof(T)>;
+  std::unique_ptr<RawStorage> rawStorage_;
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t PageSize>
-SegregatedStorage<T, PageSize>::SegregatedStorage()
+template <typename T>
+SegregatedStorage<T>::SegregatedStorage(size_t pageSize)
 {
-  using RawStorage = RawSegregatedStorage<sizeof(T), alignof(T), PageSize>;
-  rawStorage_ = std::make_unique<RawStorage>();
+  using RawStorage = RawSegregatedStorage<sizeof(T), alignof(T)>;
+  rawStorage_ = std::make_unique<RawStorage>(pageSize);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t PageSize>
+template <typename T>
 template <typename... Args>
-T* SegregatedStorage<T, PageSize>::allocate(Args&&... args)
+T* SegregatedStorage<T>::allocate(Args&&... args)
 {
   std::byte* bytePtr = rawStorage_->allocate();
   try {
@@ -63,9 +64,9 @@ T* SegregatedStorage<T, PageSize>::allocate(Args&&... args)
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t PageSize>
+template <typename T>
 template <typename... Args>
-typename SegregatedStorage<T, PageSize>::SPtr SegregatedStorage<T, PageSize>::allocateShared(Args&&... args)
+typename SegregatedStorage<T>::SPtr SegregatedStorage<T>::allocateShared(Args&&... args)
 {
   return SPtr(
     allocate<Args...>(std::forward<Args>(args)...),
@@ -74,9 +75,9 @@ typename SegregatedStorage<T, PageSize>::SPtr SegregatedStorage<T, PageSize>::al
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t PageSize>
+template <typename T>
 template <typename... Args>
-typename SegregatedStorage<T, PageSize>::UPtr SegregatedStorage<T, PageSize>::allocateUnique(Args&&... args)
+typename SegregatedStorage<T>::UPtr SegregatedStorage<T>::allocateUnique(Args&&... args)
 {
   return UPtr(
     allocate<Args...>(std::forward<Args>(args)...),
@@ -85,8 +86,8 @@ typename SegregatedStorage<T, PageSize>::UPtr SegregatedStorage<T, PageSize>::al
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-template <typename T, size_t PageSize>
-void SegregatedStorage<T, PageSize>::free(T* ptr)
+template <typename T>
+void SegregatedStorage<T>::free(T* ptr)
 {
   std::destroy_at(ptr);
   std::byte* bytePtr = reinterpret_cast<std::byte*>(ptr);
