@@ -5,16 +5,18 @@
 std::atomic<size_t> MemoryHelper::allocationCount_ = 0;
 std::atomic<size_t> TestClass::dtorCallCount_ = 0;
 
+namespace {
+
 #if defined(_MSC_VER)
 
 // -----------------------------------------------------------------------------------------------------------------------------
-inline void* aligned_alloc(std::size_t alignment, std::size_t size)
+inline void* alignedAlloc(std::size_t alignment, std::size_t size)
 {
   return _aligned_malloc(size, alignment);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-inline void aligned_free(void* ptr)
+inline void alignedFree(void* ptr)
 {
   _aligned_free(ptr);
 }
@@ -22,17 +24,20 @@ inline void aligned_free(void* ptr)
 #else // _MSC_VER
 
 // -----------------------------------------------------------------------------------------------------------------------------
-inline void* aligned_alloc(std::size_t alignment, std::size_t size)
+inline void* alignedAlloc(std::size_t alignment, std::size_t size)
 {
   return std::aligned_alloc(alignment, size);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-inline void aligned_free(void* ptr) {
+inline void alignedFree(void* ptr)
+{
   std::free(ptr);
 }
 
 #endif // !_MSC_VER
+
+} // !namespace
 
 // -----------------------------------------------------------------------------------------------------------------------------
 void* operator new(std::size_t size)
@@ -47,7 +52,7 @@ void* operator new(std::size_t size)
 void* operator new(std::size_t size, std::align_val_t alignment)
 {
   ++MemoryHelper::allocationCount_ ;
-  void* ptr = aligned_alloc(static_cast<std::size_t>(alignment), size);
+  void* ptr = alignedAlloc(static_cast<std::size_t>(alignment), size);
   if (!ptr) throw std::bad_alloc();
   return ptr;
 }
@@ -67,7 +72,7 @@ void operator delete(void* ptr, std::size_t) noexcept
 // -----------------------------------------------------------------------------------------------------------------------------
 void operator delete(void* ptr, std::align_val_t) noexcept
 {
-  aligned_free(ptr);
+  alignedFree(ptr);
 }
 
 #define BOOST_TEST_MODULE YAGA_SEGREGATED_STORAGE
