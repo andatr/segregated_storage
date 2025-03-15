@@ -73,7 +73,7 @@ private:
   void push(Item* head, Item* tail);
 
 private:
-  const size_t pageSize_;
+  size_t pageSize_;
   std::atomic_uint64_t pageCount_;
   std::atomic<Item*> freeItems_;
   Page* pageHead_;
@@ -161,7 +161,7 @@ std::byte* RawSegregatedStorage<Size, Alignment>::allocate()
     if (oldHead != nullptr) {
       nextHead = oldHead->next;
     }
-  } while (oldHead == nullptr || !freeItems_.compare_exchange_weak(oldHead, nextHead));
+  } while (oldHead == nullptr || !freeItems_.compare_exchange_weak(oldHead, nextHead, std::memory_order_release, std::memory_order_relaxed));
   return oldHead->body;
 }
 
@@ -175,6 +175,7 @@ void RawSegregatedStorage<Size, Alignment>::addPage(uint64_t oldPageCount)
   Item* tail = nullptr;
   pageHead_ = Page::allocate(pageSize_, pageHead_, &head, &tail);
   push(head, tail);
+  pageSize_ *= 2;
   ++pageCount_;
 }
 
@@ -195,7 +196,7 @@ void RawSegregatedStorage<Size, Alignment>::push(Item* head, Item* tail)
   do {
     tail->next = oldHead;
   }
-  while (!freeItems_.compare_exchange_weak(oldHead, head));
+  while (!freeItems_.compare_exchange_weak(oldHead, head, std::memory_order_release, std::memory_order_relaxed));
 }
 
 } // !namespace sgs
